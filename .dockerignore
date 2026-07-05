@@ -1,0 +1,16 @@
+# Keep the backend build context small and prevent local secrets/artifacts from
+# leaking into the image. The frontends (apps/) build from their own contexts.
+node_modules
+dist
+coverage
+.git
+.gitignore
+.env
+*.env
+*.log
+.DS_Store
+apps
+db
+scripts
+.github
+README.md

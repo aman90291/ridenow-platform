@@ -1,5 +1,10 @@
-# Local infra for RideNow. `docker compose up -d db` gives a Postgres 16
-# instance with PostGIS enabled for the spatial matching queries.
+# Local walking skeleton for RideNow. `docker compose up -d --build` brings up
+# the full vertical slice on localhost:
+#   db          -> Postgres 16 + PostGIS (spatial ext auto-enabled by the postgis image)
+#   backend     -> NestJS API on :3000  (GET /api/health, /api/health/ready)
+#   rider-pwa   -> static rider client on :8081  (fetches /api/health)
+#   driver-pwa  -> static driver client on :8082 (fetches /api/health)
+# Inter-container DB host is `db`; host-published ports use localhost.
 services:
   db:
     image: postgis/postgis:16-3.4
@@ -11,11 +16,59 @@ services:
       - "5432:5432"
     volumes:
       - ridenow_pgdata:/var/lib/postgresql/data
+      # First-boot migrations run once on an empty data dir (see README Layout).
+      # postgis-init runs from the image's own scripts; this is for our own SQL.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ridenow"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://ridenow:ridenow@db:5432/ridenow
+      # Rider/driver clients call the API cross-origin from these localhost ports.
+      CORS_ORIGINS: http://localhost:8081,http://localhost:8082
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # node-only probe (no curl/wget dependency in node:20-alpine); exit 0 on 200.
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  rider-pwa:
+    build: ./apps/rider-pwa
+    ports:
+      - "8081:80"
+    environment:
+      API_BASE_URL: http://localhost:3000/api
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  driver-pwa:
+    build: ./apps/driver-pwa
+    ports:
+      - "8082:80"
+    environment:
+      API_BASE_URL: http://localhost:3000/api
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   ridenow_pgdata:
