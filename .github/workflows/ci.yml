@@ -13,8 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # No package-lock.json is committed for this scaffold, so use `npm install`
-      # (npm ci requires a committed lockfile and would fail on a clean checkout).
-      - run: npm install
+      # package-lock.json is committed, so use `npm ci` for a clean, reproducible,
+      # lockfile-pinned install (it also fails loudly if the lockfile drifts).
+      - run: npm ci
       - run: npm run build --if-present
       - run: npm test --if-present

@@ -21,4 +21,7 @@ async function bootstrap(): Promise<void> {
   Logger.log(`RideNow API listening on http://localhost:${port}/api`, 'Bootstrap');
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  Logger.error(err, 'Bootstrap');
+  process.exit(1);
+});
