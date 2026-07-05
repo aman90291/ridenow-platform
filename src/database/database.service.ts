@@ -1,37 +1,3 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { Pool } from 'pg';
-
-export interface PingResult {
-  ok: boolean;
-  postgisVersion: string;
-}
-
-/**
- * Thin wrapper around the shared PostgreSQL/PostGIS connection pool.
- *
- * `ping()` backs the readiness probe: it round-trips to the database and
- * confirms the PostGIS extension is available, since the geospatial matching
- * and tracking slices depend on it.
- */
-@Injectable()
-export class DatabaseService implements OnModuleDestroy {
-  private readonly pool: Pool;
-
-  constructor() {
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  }
-
-  async ping(): Promise<PingResult> {
-    const result = await this.pool.query<{ postgis_version: string }>(
-      'SELECT postgis_version() AS postgis_version',
-    );
-    return { ok: true, postgisVersion: result.rows[0].postgis_version };
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
-  }
-}
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 
