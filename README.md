@@ -65,7 +65,7 @@ src/
   health/             # liveness probe -> GET /api/health
 scripts/
   smoke.sh            # curl the health endpoint
-.github/workflows/    # CI: npm ci -> build -> test
+.github/workflows/    # CI: npm install -> build -> test
 docker-compose.yml    # Postgres 16 + PostGIS
 .env.example          # env for db + Stripe / Twilio / OSM integrations
 ```
