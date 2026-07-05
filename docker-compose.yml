@@ -16,6 +16,9 @@ services:
       - "5432:5432"
     volumes:
       - ridenow_pgdata:/var/lib/postgresql/data
+      # First-boot migrations run once on an empty data dir (see README Layout).
+      # postgis-init runs from the image's own scripts; this is for our own SQL.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ridenow"]
       interval: 5s
