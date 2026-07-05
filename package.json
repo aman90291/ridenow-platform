@@ -31,7 +31,23 @@
     "ts-jest": "^29.2.0",
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0"
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "sourceType": "module"
+    },
+    "plugins": ["@typescript-eslint/eslint-plugin"],
+    "extends": ["plugin:@typescript-eslint/recommended"],
+    "env": {
+      "node": true,
+      "jest": true
+    }
   },
   "jest": {
     "moduleFileExtensions": ["js", "json", "ts"],
