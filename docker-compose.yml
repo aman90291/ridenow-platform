@@ -1,6 +1,6 @@
 # Local walking skeleton for RideNow. `docker compose up -d --build` brings up
 # the full vertical slice on localhost:
-#   db          -> Postgres 16 + PostGIS (spatial ext enabled by db/init)
+#   db          -> Postgres 16 + PostGIS (spatial ext auto-enabled by the postgis image)
 #   backend     -> NestJS API on :3000  (GET /api/health, /api/health/ready)
 #   rider-pwa   -> static rider client on :8081  (fetches /api/health)
 #   driver-pwa  -> static driver client on :8082 (fetches /api/health)
@@ -16,8 +16,6 @@ services:
       - "5432:5432"
     volumes:
       - ridenow_pgdata:/var/lib/postgresql/data
-      # Runs once on first boot of an empty volume: enables the PostGIS extension.
-      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ridenow"]
       interval: 5s
