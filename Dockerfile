@@ -1,34 +1,31 @@
-# Multi-stage build for the RideNow NestJS backend.
-# Builder compiles TypeScript -> dist/main.js; runtime carries only prod deps.
+# Backend API image (NestJS). Multi-stage: build with the full toolchain, then
+# ship a lean production runtime. All config is read from env at run time
+# (DATABASE_URL, PORT, CORS_ORIGINS) — no secrets are baked into the image.
 #
-# We use `npm install` (not `npm ci`) so the build reconciles the pg dependency
-# into the lockfile itself; the committed lockfile still pins every existing
-# package for reproducibility.
+# NOTE: uses `npm install`, not `npm ci`, on purpose. package-lock.json cannot
+# be regenerated in this workspace (npm is sandbox-gated), so it lags behind the
+# pg dependency added for the readiness probe; `npm ci` would hard-fail on that
+# drift. Switch both stages back to `npm ci` once the lockfile is refreshed.
 
-# ---- builder ----
+# ---- Builder: install all deps and compile TypeScript -> dist/main.js ----
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install deps first so this layer caches across source-only changes.
 COPY package.json package-lock.json ./
-RUN npm install --no-audit --no-fund --loglevel=error
+RUN npm install --no-audit --no-fund
 
-# Compile (nest build -> dist/main.js).
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 RUN npm run build
 
-# ---- runtime ----
+# ---- Runtime: production deps + compiled output only ----
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Prod-only dependencies; pg ships prebuilt binaries so no toolchain is needed.
 COPY package.json package-lock.json ./
-RUN npm install --omit=dev --no-audit --no-fund --loglevel=error \
-  && npm cache clean --force
+RUN npm install --omit=dev --no-audit --no-fund
 
-# Ship the compiled output only.
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000

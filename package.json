@@ -12,14 +12,13 @@
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:e2e": "bash scripts/e2e.sh"
+    "test:cov": "jest --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
     "@nestjs/core": "^10.4.0",
     "@nestjs/platform-express": "^10.4.0",
-    "pg": "^8.13.0",
+    "pg": "^8.11.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

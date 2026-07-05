@@ -5,17 +5,16 @@ server-authoritative pricing, OTP trip-start + share-trip + SOS for safety, and
 **atomic driver assignment** so two riders can never grab the same driver.
 
 This repository is the **walking skeleton** stood up by the founding engineer: a
-single `docker compose up` brings the whole vertical slice up on localhost — the
-database, the backend API, and thin rider & driver web clients that each make a
-live call to the backend. Every feature story (auth/OTP, matching, live
-tracking, payments) builds on top of this scaffold.
+`docker compose` stack that comes up on localhost and serves a rider PWA, a
+driver PWA, and the backend against Postgres + PostGIS — with health/readiness
+endpoints, unit tests, an end-to-end test, and CI. Every feature story (auth/OTP,
+matching, live tracking, payments) builds on top of this scaffold.
 
 ## Stack
 
 - **Backend:** TypeScript + NestJS (modular, ports & adapters)
-- **Frontend (rider & driver web):** static PWA stubs served by nginx — thin
-  walking-skeleton clients; the full Next.js / React + Leaflet apps land in a
-  follow-up story
+- **Frontend (rider & driver web):** thin static PWA stubs (nginx-served) that each
+  make one live call to the backend — *full Next.js / React + Leaflet apps land in a follow-up story*
 - **Database:** PostgreSQL 16 + PostGIS (single Postgres, spatial extension enabled)
 - **Integrations, behind ports:** Stripe (payments, test mode), Twilio (SMS/OTP),
   and free, keyless OpenStreetMap — Nominatim (geocode) + OSRM (routing)
@@ -27,25 +26,16 @@ tracking, payments) builds on top of this scaffold.
 
 ## Quick start
 
-### Full walking skeleton (Docker)
-
-Brings up db + backend + both PWAs on localhost:
+Whole walking skeleton (db + backend + both PWAs) on localhost:
 
 ```bash
 docker compose up -d --build
+# rider PWA   -> http://localhost:8081
+# driver PWA  -> http://localhost:8082
+# backend API -> http://localhost:3000/api
 ```
 
-| Surface     | URL                                      |
-| ----------- | ---------------------------------------- |
-| Backend API | http://localhost:3000/api                |
-| Liveness    | http://localhost:3000/api/health         |
-| Readiness   | http://localhost:3000/api/health/ready   |
-| Rider PWA   | http://localhost:8081                    |
-| Driver PWA  | http://localhost:8082                    |
-
-Tear down with `docker compose down -v`.
-
-### Backend only (local Node)
+Or just the API against a containerized db, with hot reload:
 
 ```bash
 # 1. install deps
@@ -65,10 +55,9 @@ npm run start:dev
 curl -s http://localhost:3000/api/health
 # {"status":"ok","service":"ridenow-api","timestamp":"...","uptime":...}
 
-# Readiness also proves the db is reachable and PostGIS is enabled:
 curl -s http://localhost:3000/api/health/ready
-# {"status":"ok","db":"ok","postgis":"3.4 USE_GEOS=1 ..."}
-# -> 503 {"status":"degraded","db":"unreachable"} when the db is down
+# {"status":"ok","db":"ok","postgis":"3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1"}
+# -> 503 {"status":"degraded","db":"unreachable"} when the db is unreachable
 ```
 
 Or run the smoke one-liner:
@@ -81,9 +70,8 @@ BASE_URL=https://your-deploy/api ./scripts/smoke.sh   # a live deploy
 ## Test
 
 ```bash
-npm test            # backend unit tests (jest)
-npm run test:e2e    # full walking-skeleton e2e: boots the stack, asserts every
-                    # surface, tears it down (requires Docker; used by CI)
+npm test                 # unit tests (health + database service)
+bash scripts/e2e.sh      # end-to-end: boot the whole stack, assert, tear down
 ```
 
 ## Layout
@@ -92,17 +80,17 @@ npm run test:e2e    # full walking-skeleton e2e: boots the stack, asserts every
 src/
   main.ts             # entrypoint: bootstraps Nest, global /api prefix, CORS, HTTP timeouts
   app.module.ts       # root module (feature modules plug in here)
-  database/           # shared Postgres/PostGIS connection pool + readiness ping
+  database/           # pg pool + readiness ping (SELECT postgis_version())
   health/             # liveness -> GET /api/health, readiness -> GET /api/health/ready
 apps/
-  rider-pwa/          # static rider client (nginx), API base injected at runtime
-  driver-pwa/         # static driver client (nginx)
-db/init/              # PostGIS extension migration (runs on first db boot)
+  rider-pwa/          # static rider client (nginx), one live call to the backend
+  driver-pwa/         # static driver client (nginx), one live call to the backend
+db/init/              # first-boot migration: CREATE EXTENSION postgis
+Dockerfile            # backend image (multi-stage node:20-alpine)
 scripts/
   smoke.sh            # curl the health endpoint
-  e2e.sh              # boot the full stack and assert it end to end
-.github/workflows/    # CI: unit build+test job, plus a docker-compose e2e job
-Dockerfile            # backend image (multi-stage node build)
+  e2e.sh              # boot the full stack, assert every endpoint, tear down
+.github/workflows/    # CI: install -> build -> unit test, plus the e2e job
 docker-compose.yml    # db + backend + rider-pwa + driver-pwa
 .env.example          # env for db + Stripe / Twilio / OSM integrations
 ```
