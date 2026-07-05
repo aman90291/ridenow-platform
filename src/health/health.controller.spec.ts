@@ -1,6 +1,5 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
 import { HealthController } from './health.controller';
 import { DatabaseService } from '../database/database.service';
 
@@ -76,6 +75,7 @@ describe('HealthController', () => {
   // this runs in the plain `npm test` job with no Docker/Postgres dependency.
   describe('HTTP integration (readiness + liveness through the full stack)', () => {
     let app: INestApplication;
+    let baseUrl: string;
     let httpPing: jest.Mock;
 
     beforeAll(async () => {
@@ -88,7 +88,11 @@ describe('HealthController', () => {
       app = moduleRef.createNestApplication();
       // Mirror the global prefix applied in main.ts so the real route is `/api/health/*`.
       app.setGlobalPrefix('api');
-      await app.init();
+      // Bind to an ephemeral port and drive the routes over real HTTP with the
+      // built-in fetch client, so this integration coverage needs no extra deps.
+      await app.listen(0);
+      const { port } = app.getHttpServer().address();
+      baseUrl = `http://127.0.0.1:${port}`;
     });
 
     afterAll(async () => {
@@ -105,12 +109,11 @@ describe('HealthController', () => {
         postgisVersion: '3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1',
       });
 
-      const response = await request(app.getHttpServer())
-        .get('/api/health/ready')
-        .expect(200)
-        .expect('Content-Type', /application\/json/);
+      const response = await fetch(`${baseUrl}/api/health/ready`);
 
-      expect(response.body).toEqual({
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toMatch(/application\/json/);
+      expect(await response.json()).toEqual({
         status: 'ok',
         db: 'ok',
         postgis: '3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1',
@@ -120,24 +123,26 @@ describe('HealthController', () => {
     it('GET /api/health/ready -> 503 application/json when the ping fails', async () => {
       httpPing.mockResolvedValue({ ok: false });
 
-      const response = await request(app.getHttpServer())
-        .get('/api/health/ready')
-        .expect(503)
-        .expect('Content-Type', /application\/json/);
+      const response = await fetch(`${baseUrl}/api/health/ready`);
 
-      expect(response.body).toEqual({ status: 'degraded', db: 'unreachable' });
+      expect(response.status).toBe(503);
+      expect(response.headers.get('content-type')).toMatch(/application\/json/);
+      expect(await response.json()).toEqual({
+        status: 'degraded',
+        db: 'unreachable',
+      });
     });
 
     it('GET /api/health -> 200 application/json liveness without touching the db', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/health')
-        .expect(200)
-        .expect('Content-Type', /application\/json/);
+      const response = await fetch(`${baseUrl}/api/health`);
+      const body = await response.json();
 
-      expect(response.body.status).toBe('ok');
-      expect(response.body.service).toBe('ridenow-api');
-      expect(typeof response.body.timestamp).toBe('string');
-      expect(typeof response.body.uptime).toBe('number');
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toMatch(/application\/json/);
+      expect(body.status).toBe('ok');
+      expect(body.service).toBe('ridenow-api');
+      expect(typeof body.timestamp).toBe('string');
+      expect(typeof body.uptime).toBe('number');
       expect(httpPing).not.toHaveBeenCalled();
     });
   });
