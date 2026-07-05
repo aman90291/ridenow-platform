@@ -16,7 +16,11 @@ jobs:
       # Uses `npm install` (not `npm ci`) on purpose: package-lock.json lags
       # behind the pg dependency and cannot be regenerated in the authoring
       # sandbox, so `npm ci` would hard-fail on lockfile drift. `npm install`
-      # reconciles it. Switch back to `npm ci` once the lockfile is refreshed.
+      # reconciles it.
+      # TODO(lockfile-npm-ci): refresh package-lock.json (add pg + @types/pg)
+      # and revert this step AND both Dockerfile stages back to `npm ci` so
+      # installs are lockfile-pinned/reproducible and drift fails loudly.
+      # Greppable marker so this temporary state does not quietly persist.
       - run: npm install --no-audit --no-fund
       - run: npm run build --if-present
       - run: npm test --if-present
