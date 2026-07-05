@@ -1,0 +1,15 @@
+# Keep the backend build context small and prevent local artifacts / secrets
+# from leaking into the image. apps/ holds the PWAs, built by their own images.
+node_modules
+dist
+coverage
+.git
+.gitignore
+.env
+*.log
+.DS_Store
+apps
+scripts
+README.md
+docker-compose.yml
+.github

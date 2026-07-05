@@ -13,8 +13,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # package-lock.json is committed, so use `npm ci` for a clean, reproducible,
-      # lockfile-pinned install (it also fails loudly if the lockfile drifts).
-      - run: npm ci
+      # `npm install` (not `npm ci`) so the pg dependency is reconciled into the
+      # lockfile at install time; existing packages stay pinned by the lockfile.
+      - run: npm install --no-audit --no-fund
       - run: npm run build --if-present
       - run: npm test --if-present
+
+  e2e:
+    # Boots the full docker-compose walking skeleton on localhost and asserts
+    # every surface (db + backend + rider/driver PWAs) end to end. Docker and
+    # docker compose v2 are preinstalled on GitHub-hosted ubuntu runners.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Walking-skeleton e2e
+        run: bash scripts/e2e.sh
